@@ -1,0 +1,42 @@
+# Frontend Technical Notes
+
+SvelteKit app for collecting words and displaying saved words one at a time.
+
+## Requirements
+
+- Node.js 20 or newer
+- Backend running at `http://localhost:3001` unless overridden
+
+## Environment
+
+```sh
+VITE_API_BASE_URL=http://localhost:3001
+```
+
+## Scripts
+
+```sh
+npm run dev --workspace front
+npm run test --workspace front
+npm run build --workspace front
+npm run lint --workspace front
+```
+
+## App Flow
+
+1. On load, the page requests `GET /words`.
+2. The user enters a word and submits the form.
+3. The page sends `POST /words`.
+4. On success, the created word is appended to the local list.
+5. The current word display moves to the new word.
+6. Previous and next buttons navigate through saved words one at a time.
+
+## Source Layout
+
+- `src/routes/+page.svelte`: route entrypoint.
+- `src/lib/WordApp.svelte`: main tested UI component.
+- `src/lib/api.ts`: backend HTTP client.
+
+## Testing
+
+Frontend tests use Vitest, jsdom, and Svelte Testing Library. Tests inject fake API functions into `WordApp.svelte` so component behavior can be tested without a running backend.

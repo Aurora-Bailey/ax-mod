@@ -1,0 +1,23 @@
+{
+  "name": "ax-mod",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "back",
+    "front"
+  ],
+  "scripts": {
+    "dev": "concurrently -n back,front -c cyan,green \"npm run dev --workspace back\" \"npm run dev --workspace front\"",
+    "test": "npm run test --workspaces",
+    "build": "npm run build --workspaces",
+    "lint": "npm run lint --workspaces",
+    "format": "prettier --write ."
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "prettier": "^3.8.3"
+  }
+}
