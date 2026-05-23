@@ -19,6 +19,8 @@ MONGODB_TEST_DB=ax_mod_test
 FRONTEND_ORIGIN=http://localhost:5173
 ```
 
+The backend loads `.env` from the repository root. A `back/.env` file is also supported for backend-specific local overrides.
+
 ## Scripts
 
 ```sh
@@ -106,6 +108,7 @@ The repository creates an index on `{ createdAt: 1 }`.
 ## Testing
 
 Tests use Vitest and a dedicated local MongoDB test database. The database name is built from `MONGODB_TEST_DB`, the process id, and the current timestamp, then dropped after the test run.
+The backend test setup loads the same root `.env` file used by local development.
 
 Start MongoDB before running:
 

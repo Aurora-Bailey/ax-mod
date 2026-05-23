@@ -37,7 +37,7 @@ The first product slice is intentionally small:
 npm install
 ```
 
-Copy `.env.example` to `.env` if you want to override defaults.
+Copy `.env.example` to `.env` at the repository root if you want to override defaults. Both workspaces read the root `.env` during local development and tests.
 
 ## Development
 
@@ -63,6 +63,8 @@ Default local URLs:
 
 - Frontend: `http://localhost:5173`
 - Backend: `http://localhost:3001`
+
+To avoid local port conflicts, set `PORT`, `FRONTEND_ORIGIN`, and `VITE_API_BASE_URL` in the root `.env`.
 
 ## Verification
 

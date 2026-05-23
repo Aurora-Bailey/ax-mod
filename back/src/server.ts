@@ -1,8 +1,9 @@
-import { loadConfig } from './config.js';
+import { loadConfig, loadEnvFiles } from './config.js';
 import { connectMongo } from './db.js';
 import { buildApp } from './app.js';
 import { createMongoWordRepository } from './word-repository.js';
 
+loadEnvFiles();
 const config = loadConfig();
 const mongo = await connectMongo(config.mongodbUri);
 const repository = await createMongoWordRepository(mongo.db(config.mongodbDb));

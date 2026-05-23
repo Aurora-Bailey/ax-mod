@@ -62,6 +62,17 @@ describe('word routes', () => {
     expect(empty.json()).toEqual({ error: 'word is required' });
   });
 
+  it('rejects words longer than 100 characters', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/words',
+      payload: { word: 'a'.repeat(101) }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({ error: 'word must be 100 characters or fewer' });
+  });
+
   it('stores trimmed words while preserving case', async () => {
     const response = await app.inject({
       method: 'POST',
