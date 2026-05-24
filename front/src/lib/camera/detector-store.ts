@@ -108,7 +108,7 @@ function createCameraDetectorStore() {
       });
     },
     setDevices(devices: CameraDevice[]): void {
-      updateAndPersist((state) => ({ ...state, devices }), false);
+      updateAndPersist((state) => ({ ...state, devices, cameraError: '' }), false);
     },
     setSelectedDeviceId(selectedDeviceId: string): void {
       updateAndPersist((state) => ({ ...state, selectedDeviceId }));
@@ -125,9 +125,16 @@ function createCameraDetectorStore() {
         false
       );
     },
-    setCameraError(cameraError: string): void {
+    setCameraError(cameraError: string, options: { deactivate?: boolean } = {}): void {
+      const deactivate = options.deactivate ?? true;
       updateAndPersist(
-        (state) => ({ ...state, cameraError, cameraActive: false, currentRgb: null }),
+        (state) => ({
+          ...state,
+          cameraError,
+          cameraActive: deactivate ? false : state.cameraActive,
+          stream: deactivate ? null : state.stream,
+          currentRgb: deactivate ? null : state.currentRgb
+        }),
         false
       );
     },

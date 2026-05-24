@@ -1,7 +1,12 @@
 import { get } from 'svelte/store';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cameraDetector } from './detector-store';
-import { resetCameraMediaForTests, setCameraMediaForTests, startCamera } from './camera-actions';
+import {
+  refreshCameraDevices,
+  resetCameraMediaForTests,
+  setCameraMediaForTests,
+  startCamera
+} from './camera-actions';
 
 function makeStream(): MediaStream {
   return {
@@ -35,6 +40,28 @@ describe('camera actions', () => {
       stream: null,
       cameraActive: false,
       cameraError: 'Permission denied'
+    });
+  });
+
+  it('keeps an active stream running when device refresh fails', async () => {
+    const existingStream = makeStream();
+    const stopStream = vi.fn();
+
+    cameraDetector.setStream(existingStream);
+    setCameraMediaForTests({
+      listVideoDevices: async () => {
+        throw new Error('Device list unavailable');
+      },
+      stopStream
+    });
+
+    await refreshCameraDevices();
+
+    expect(stopStream).not.toHaveBeenCalled();
+    expect(get(cameraDetector)).toMatchObject({
+      stream: existingStream,
+      cameraActive: true,
+      cameraError: 'Device list unavailable'
     });
   });
 });

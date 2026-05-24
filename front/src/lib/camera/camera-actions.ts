@@ -18,7 +18,10 @@ export async function refreshCameraDevices(): Promise<void> {
   try {
     cameraDetector.setDevices(await cameraMedia.listVideoDevices());
   } catch (caught) {
-    cameraDetector.setCameraError(getErrorMessage(caught, 'Unable to list cameras.'));
+    const current = get(cameraDetector);
+    cameraDetector.setCameraError(getErrorMessage(caught, 'Unable to list cameras.'), {
+      deactivate: !current.stream
+    });
   }
 }
 
