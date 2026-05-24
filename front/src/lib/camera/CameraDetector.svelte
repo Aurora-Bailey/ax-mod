@@ -26,6 +26,7 @@
     : 'Train a reference';
 
   onMount(() => {
+    attachVisibleStream($cameraDetector.stream);
     void refreshCameraDevices();
   });
 
