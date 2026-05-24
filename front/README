@@ -1,11 +1,12 @@
 # Frontend Technical Notes
 
-SvelteKit app for collecting words and displaying saved words one at a time.
+SvelteKit app for camera color detection and Mongo-backed word collection.
 
 ## Requirements
 
 - Node.js 20 or newer
 - Backend running at `http://localhost:3001` unless overridden
+- Browser with `navigator.mediaDevices.getUserMedia` support for the camera detector
 
 ## Environment
 
@@ -25,7 +26,28 @@ npm run build --workspace front
 npm run lint --workspace front
 ```
 
-## App Flow
+## App Routes
+
+- `/`: camera color detector.
+- `/mongoword`: word collector backed by the Fastify/MongoDB API.
+
+## Camera Detector Flow
+
+1. The root layout mounts a hidden detector runtime that persists across app pages.
+2. The camera page lists available webcams and starts the selected stream.
+3. The detector samples pixels inside the configured square on an animation loop.
+4. The Train button stores the current square's average RGB value as the reference.
+5. Sensitivity maps from exact match at `1` to the theoretical RGB max distance at `1000`.
+6. The square turns green when the current average RGB is within range, and a generated beep plays on red-to-green transitions.
+
+Detector settings are stored in browser localStorage:
+
+- Selected camera id
+- Square `x`, `y`, `width`, `height`
+- Sensitivity
+- Trained RGB reference
+
+## Mongo Word Flow
 
 1. On load, the page requests `GET /words`.
 2. The user enters a word and submits the form.
@@ -36,10 +58,13 @@ npm run lint --workspace front
 
 ## Source Layout
 
-- `src/routes/+page.svelte`: route entrypoint.
+- `src/routes/+layout.svelte`: shared shell, navigation, and persistent detector runtime.
+- `src/routes/+page.svelte`: camera detector page.
+- `src/routes/mongoword/+page.svelte`: word app page.
+- `src/lib/camera/`: detector UI, runtime, state, RGB math, camera helpers, and sound.
 - `src/lib/WordApp.svelte`: main tested UI component.
 - `src/lib/api.ts`: backend HTTP client.
 
 ## Testing
 
-Frontend tests use Vitest, jsdom, and Svelte Testing Library. Tests inject fake API functions into `WordApp.svelte` so component behavior can be tested without a running backend.
+Frontend tests use Vitest, jsdom, and Svelte Testing Library. Tests cover camera RGB math, detector state, navigation, and word app behavior without requiring a real webcam or running backend.

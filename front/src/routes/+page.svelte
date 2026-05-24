@@ -1,5 +1,5 @@
 <script lang="ts">
-  import WordApp from '$lib/WordApp.svelte';
+  import CameraDetector from '$lib/camera/CameraDetector.svelte';
 </script>
 
-<WordApp />
+<CameraDetector />

@@ -4,12 +4,10 @@ This file is the first source of truth for Codex agents working in this reposito
 
 ## Product Goal
 
-Build a small full-stack word app:
+Build a small full-stack app with two frontend tools:
 
-- The frontend asks the user for a word.
-- The frontend sends the word to the backend.
-- The backend stores the word in local MongoDB.
-- The frontend requests saved words and displays them one at a time.
+- The camera detector samples a configurable square from a selected webcam, trains an RGB reference, and reports whether the current square color is close enough.
+- The Mongo word page asks the user for a word, sends it to the backend, stores it in local MongoDB, and displays saved words one at a time.
 
 Keep the app simple, tested, and easy to extend.
 
@@ -21,6 +19,8 @@ Keep the app simple, tested, and easy to extend.
 - MongoDB runs locally.
 - Backend is the only layer that talks to MongoDB.
 - Frontend talks to backend over HTTP.
+- Camera detection is frontend-only and browser-local.
+- Persistent camera settings use browser localStorage.
 
 ## Required Read Order
 
@@ -40,6 +40,8 @@ Keep the app simple, tested, and easy to extend.
 - Keep backend validation close to the route boundary.
 - Keep database access behind a repository-style interface.
 - Keep frontend API calls in `front/src/lib/api.ts`.
+- Keep camera detection math in pure frontend modules where possible.
+- Keep browser camera and audio APIs isolated from pure tests.
 - Preserve TypeScript strictness.
 - Do not bypass tests to make a change look complete.
 - Do not add large frameworks or global state until the product needs them.

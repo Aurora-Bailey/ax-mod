@@ -1,13 +1,13 @@
 # ax-mod
 
-SvelteKit + Fastify word collector backed by local MongoDB.
+SvelteKit + Fastify app with a browser camera color detector and a word collector backed by local MongoDB.
 
-The first product slice is intentionally small:
+The current product slices are intentionally small:
 
-1. The frontend asks for a word.
-2. The frontend sends that word to the backend.
-3. The backend validates and stores the word in MongoDB.
-4. The frontend loads saved words and displays them one at a time.
+- `/` opens the camera detector.
+- `/mongoword` asks for a word, sends it to the backend, stores it in MongoDB, and displays saved words one at a time.
+
+The camera detector runs in the frontend. It samples a configurable square over the selected webcam, trains an average RGB reference, and turns green when the current square color is within the selected sensitivity.
 
 ## Project Layout
 
@@ -65,6 +65,11 @@ Default local URLs:
 - Backend: `http://localhost:3001`
 
 To avoid local port conflicts, set `PORT`, `FRONTEND_ORIGIN`, and `VITE_API_BASE_URL` in the root `.env`.
+
+Frontend pages:
+
+- Camera detector: `/`
+- Mongo word app: `/mongoword`
 
 ## Verification
 

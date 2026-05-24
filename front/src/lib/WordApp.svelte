@@ -74,15 +74,10 @@
   }
 </script>
 
-<svelte:head>
-  <title>ax-mod Words</title>
-  <meta name="description" content="Save words and browse them one at a time." />
-</svelte:head>
-
-<main class="app-shell">
-  <section class="word-tool" aria-labelledby="page-title">
+<section class="word-page" aria-labelledby="page-title">
+  <div class="word-tool">
     <div class="intro">
-      <p class="eyebrow">ax-mod</p>
+      <p class="eyebrow">Mongo Word</p>
       <h1 id="page-title">Word queue</h1>
     </div>
 
@@ -124,31 +119,13 @@
         </div>
       {/if}
     </section>
-  </section>
-</main>
+  </div>
+</section>
 
 <style>
-  :global(body) {
-    margin: 0;
-    min-width: 320px;
-    background:
-      linear-gradient(120deg, rgba(25, 135, 84, 0.12), transparent 38%),
-      linear-gradient(230deg, rgba(13, 110, 253, 0.1), transparent 42%),
-      #f7f5ef;
-    color: #1f2933;
-    font-family:
-      Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  }
-
-  :global(*) {
-    box-sizing: border-box;
-  }
-
-  .app-shell {
-    min-height: 100vh;
+  .word-page {
     display: grid;
     place-items: center;
-    padding: 32px 16px;
   }
 
   .word-tool {
