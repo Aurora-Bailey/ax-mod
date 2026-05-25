@@ -3,9 +3,11 @@ import { writable } from 'svelte/store';
 import {
   clampSensitivity,
   clampSquare,
-  isRgbMatch,
-  rgbDistance,
+  isLabMatch,
+  labDistance,
+  rgbToLab,
   type DetectionSquare,
+  type Lab,
   type Rgb
 } from './detection';
 
@@ -25,7 +27,9 @@ export type CameraDetectorState = {
   square: DetectionSquare;
   sensitivity: number;
   referenceRgb: Rgb | null;
+  referenceLab: Lab | null;
   currentRgb: Rgb | null;
+  currentLab: Lab | null;
   distance: number | null;
   isMatch: boolean;
   hydrated: boolean;
@@ -36,14 +40,15 @@ type PersistedDetectorState = {
   square: DetectionSquare;
   sensitivity: number;
   referenceRgb: Rgb | null;
+  referenceLab: Lab | null;
 };
 
 const STORAGE_KEY = 'ax-mod.camera-detector.v1';
 const DEFAULT_SQUARE: DetectionSquare = {
   x: 20,
   y: 20,
-  width: 120,
-  height: 120
+  width: 50,
+  height: 50
 };
 
 const DEFAULT_STATE: CameraDetectorState = {
@@ -57,7 +62,9 @@ const DEFAULT_STATE: CameraDetectorState = {
   square: DEFAULT_SQUARE,
   sensitivity: 100,
   referenceRgb: null,
+  referenceLab: null,
   currentRgb: null,
+  currentLab: null,
   distance: null,
   isMatch: false,
   hydrated: false
@@ -120,7 +127,8 @@ function createCameraDetectorStore() {
           stream,
           cameraActive: stream !== null,
           cameraError: stream ? '' : state.cameraError,
-          currentRgb: stream ? state.currentRgb : null
+          currentRgb: stream ? state.currentRgb : null,
+          currentLab: stream ? state.currentLab : null
         }),
         false
       );
@@ -133,7 +141,8 @@ function createCameraDetectorStore() {
           cameraError,
           cameraActive: deactivate ? false : state.cameraActive,
           stream: deactivate ? null : state.stream,
-          currentRgb: deactivate ? null : state.currentRgb
+          currentRgb: deactivate ? null : state.currentRgb,
+          currentLab: deactivate ? null : state.currentLab
         }),
         false
       );
@@ -159,7 +168,14 @@ function createCameraDetectorStore() {
       updateAndPersist((state) => ({ ...state, sensitivity: clampSensitivity(sensitivity) }));
     },
     setCurrentRgb(currentRgb: Rgb | null): void {
-      updateAndPersist((state) => ({ ...state, currentRgb }), false);
+      updateAndPersist(
+        (state) => ({
+          ...state,
+          currentRgb,
+          currentLab: currentRgb ? rgbToLab(currentRgb) : null
+        }),
+        false
+      );
     },
     trainFromCurrent(): boolean {
       let trained = false;
@@ -170,13 +186,17 @@ function createCameraDetectorStore() {
         }
 
         trained = true;
-        return { ...state, referenceRgb: state.currentRgb };
+        return {
+          ...state,
+          referenceRgb: state.currentRgb,
+          referenceLab: state.currentLab ?? rgbToLab(state.currentRgb)
+        };
       });
 
       return trained;
     },
     resetReference(): void {
-      updateAndPersist((state) => ({ ...state, referenceRgb: null }));
+      updateAndPersist((state) => ({ ...state, referenceRgb: null, referenceLab: null }));
     },
     resetForTests(): void {
       getStorage()?.removeItem(STORAGE_KEY);
@@ -189,13 +209,16 @@ function createCameraDetectorStore() {
 export const cameraDetector = createCameraDetectorStore();
 
 function withDetection(state: CameraDetectorState): CameraDetectorState {
-  const distance =
-    state.currentRgb && state.referenceRgb ? rgbDistance(state.currentRgb, state.referenceRgb) : null;
+  const currentLab = state.currentLab ?? (state.currentRgb ? rgbToLab(state.currentRgb) : null);
+  const referenceLab = state.referenceLab ?? (state.referenceRgb ? rgbToLab(state.referenceRgb) : null);
+  const distance = currentLab && referenceLab ? labDistance(currentLab, referenceLab) : null;
 
   return {
     ...state,
+    currentLab,
+    referenceLab,
     distance,
-    isMatch: isRgbMatch(state.currentRgb, state.referenceRgb, state.sensitivity)
+    isMatch: isLabMatch(currentLab, referenceLab, state.sensitivity)
   };
 }
 
@@ -204,7 +227,8 @@ function readPersistedState(): PersistedDetectorState {
     selectedDeviceId: DEFAULT_STATE.selectedDeviceId,
     square: DEFAULT_STATE.square,
     sensitivity: DEFAULT_STATE.sensitivity,
-    referenceRgb: DEFAULT_STATE.referenceRgb
+    referenceRgb: DEFAULT_STATE.referenceRgb,
+    referenceLab: DEFAULT_STATE.referenceLab
   };
 
   if (!browser) {
@@ -218,12 +242,18 @@ function readPersistedState(): PersistedDetectorState {
     }
 
     const parsed = JSON.parse(raw) as Partial<PersistedDetectorState>;
+    const referenceRgb = isRgb(parsed.referenceRgb) ? parsed.referenceRgb : null;
 
     return {
       selectedDeviceId: typeof parsed.selectedDeviceId === 'string' ? parsed.selectedDeviceId : '',
       square: isSquare(parsed.square) ? parsed.square : DEFAULT_SQUARE,
       sensitivity: clampSensitivity(Number(parsed.sensitivity)),
-      referenceRgb: isRgb(parsed.referenceRgb) ? parsed.referenceRgb : null
+      referenceRgb,
+      referenceLab: referenceRgb
+        ? isLab(parsed.referenceLab)
+          ? parsed.referenceLab
+          : rgbToLab(referenceRgb)
+        : null
     };
   } catch {
     return fallback;
@@ -241,7 +271,8 @@ function persistState(state: CameraDetectorState): void {
     selectedDeviceId: state.selectedDeviceId,
     square: state.square,
     sensitivity: state.sensitivity,
-    referenceRgb: state.referenceRgb
+    referenceRgb: state.referenceRgb,
+    referenceLab: state.referenceLab
   };
 
   storage.setItem(STORAGE_KEY, JSON.stringify(persisted));
@@ -278,6 +309,26 @@ function isRgb(value: unknown): value is Rgb {
     value !== null &&
     'r' in value &&
     'g' in value &&
-    'b' in value
+    'b' in value &&
+    isFiniteNumber(value.r) &&
+    isFiniteNumber(value.g) &&
+    isFiniteNumber(value.b)
   );
+}
+
+function isLab(value: unknown): value is Lab {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'l' in value &&
+    'a' in value &&
+    'b' in value &&
+    isFiniteNumber(value.l) &&
+    isFiniteNumber(value.a) &&
+    isFiniteNumber(value.b)
+  );
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
 }

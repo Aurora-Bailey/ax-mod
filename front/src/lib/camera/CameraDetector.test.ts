@@ -4,6 +4,7 @@ import { get } from 'svelte/store';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import CameraDetector from './CameraDetector.svelte';
 import { cameraDetector } from './detector-store';
+import { rgbToLab } from './detection';
 
 function makeStream(): MediaStream {
   return {
@@ -35,14 +36,16 @@ describe('CameraDetector', () => {
     expect(get(cameraDetector).square.x).toBe(99);
   });
 
-  it('trains the current RGB value from the train button', async () => {
+  it('trains the current Lab-backed value from the train button', async () => {
     const user = userEvent.setup();
-    cameraDetector.setCurrentRgb({ r: 80, g: 90, b: 100 });
+    const currentRgb = { r: 80, g: 90, b: 100 };
+    cameraDetector.setCurrentRgb(currentRgb);
 
     render(CameraDetector);
     await user.click(screen.getByRole('button', { name: 'Train reference' }));
 
-    expect(get(cameraDetector).referenceRgb).toEqual({ r: 80, g: 90, b: 100 });
+    expect(get(cameraDetector).referenceRgb).toEqual(currentRgb);
+    expect(get(cameraDetector).referenceLab).toEqual(rgbToLab(currentRgb));
   });
 
   it('attaches an existing stream when remounted after navigation', async () => {

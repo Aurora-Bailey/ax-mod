@@ -144,15 +144,15 @@
         <strong class:match-text={$cameraDetector.isMatch}>{statusText}</strong>
       </div>
       <div>
-        <span class="status-label">Current</span>
+        <span class="status-label">Current RGB</span>
         <strong>{formatRgb($cameraDetector.currentRgb)}</strong>
       </div>
       <div>
-        <span class="status-label">Reference</span>
+        <span class="status-label">Reference RGB</span>
         <strong>{formatRgb($cameraDetector.referenceRgb)}</strong>
       </div>
       <div>
-        <span class="status-label">Distance</span>
+        <span class="status-label">Lab distance</span>
         <strong>
           {$cameraDetector.distance === null ? 'Not trained' : $cameraDetector.distance.toFixed(2)}
         </strong>

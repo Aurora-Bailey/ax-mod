@@ -36,16 +36,17 @@ npm run lint --workspace front
 1. The root layout mounts a hidden detector runtime that persists across app pages.
 2. The camera page lists available webcams and starts the selected stream.
 3. The detector samples pixels inside the configured square on an animation loop.
-4. The Train button stores the current square's average RGB value as the reference.
-5. Sensitivity maps from exact match at `1` to the theoretical RGB max distance at `1000`.
-6. The square turns green when the current average RGB is within range, and a generated beep plays on red-to-green transitions.
+4. The default detection square is 50 by 50 pixels, and can still be resized in the controls.
+5. The Train button stores the current square's average RGB value and converted Lab value as the reference.
+6. Sensitivity maps from exact match at `1` to the theoretical weighted Lab max distance at `1000`.
+7. The square turns green when the current average color is within Lab range, and a generated beep plays on red-to-green transitions.
 
 Detector settings are stored in browser localStorage:
 
 - Selected camera id
 - Square `x`, `y`, `width`, `height`
 - Sensitivity
-- Trained RGB reference
+- Trained RGB and Lab reference
 
 ## Mongo Word Flow
 
@@ -61,10 +62,10 @@ Detector settings are stored in browser localStorage:
 - `src/routes/+layout.svelte`: shared shell, navigation, and persistent detector runtime.
 - `src/routes/+page.svelte`: camera detector page.
 - `src/routes/mongoword/+page.svelte`: word app page.
-- `src/lib/camera/`: detector UI, runtime, state, RGB math, camera helpers, and sound.
+- `src/lib/camera/`: detector UI, runtime, state, RGB sampling, Lab color comparison, camera helpers, and sound.
 - `src/lib/WordApp.svelte`: main tested UI component.
 - `src/lib/api.ts`: backend HTTP client.
 
 ## Testing
 
-Frontend tests use Vitest, jsdom, and Svelte Testing Library. Tests cover camera RGB math, detector state, navigation, and word app behavior without requiring a real webcam or running backend.
+Frontend tests use Vitest, jsdom, and Svelte Testing Library. Tests cover camera sampling and Lab comparison math, detector state, navigation, and word app behavior without requiring a real webcam or running backend.
