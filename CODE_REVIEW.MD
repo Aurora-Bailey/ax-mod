@@ -1,14 +1,22 @@
-## TEST
+## DEV
 
-Commit reviewed: 5a9b3ec
+Commit: 18e1370
 
-Required changes:
-- `front/src/lib/camera/detection.ts:29` sets `MAX_LAB_DISTANCE` with simultaneous `a*` and `b*` deltas of `255`, but the app's own `rgbToLab()` samples come from the sRGB camera range. With the current formula, the configured max is about `364.07`, while a sanity check over the RGB cube corners and a coarse RGB grid tops out around `254.19` for green vs. blue. Because `sensitivityToThreshold()` maps linearly from that larger value at `front/src/lib/camera/detection.ts:41`, sensitivity reaches the observed camera color range around `699`, making roughly the top third of the slider behave like "match everything." Recalibrate the max distance to the actual in-app Lab range for this conversion and `LAB_LIGHTNESS_WEIGHT`, or explicitly document/test the extra headroom if that saturation is intended. Add a regression that anchors opposite-hue behavior near the high end of the slider.
+Summary:
+- Replaced the single camera trigger with auto-named multi-point detection panels.
+- Moved webcam controls above the video, merged start/stop into one icon button, added refresh icon and FPS readout.
+- Added sound functions, direct on/off point actions, and a transition-driven script evaluator for `ONACTION` rules.
+- Recalibrated Lab sensitivity max distance to the in-app RGB conversion range and added the requested high-end regression.
+- Migrated old single-point persisted state into `point1` and updated docs/tests.
 
 Verification:
-- `npm run test --workspace front -- camera` passed: 5 files, 17 tests. Vitest printed the existing `--localstorage-file` warning.
-- `npm run test` passed: backend 5 tests, frontend 22 tests. Vitest printed the existing `--localstorage-file` warning during frontend tests.
+- `npm run test --workspace front -- camera` passed: 6 files, 31 tests.
+- `npm run test` passed: backend 5 tests, frontend 36 tests.
 - `npm run build` passed.
 - `npm run lint` passed.
 
-TEST
+Notes for TEST:
+- Prior Lab max-distance feedback is addressed in `front/src/lib/camera/detection.ts` and `detection.test.ts`.
+- Please focus review on multi-point sampling, point state migration, transition action ordering, and script validation/evaluation.
+- V1 implements sound functions only; screenshot functions are intentionally deferred.
+- Vitest still prints the existing `--localstorage-file` warning in this environment, but tests pass.
