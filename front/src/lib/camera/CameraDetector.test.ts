@@ -82,8 +82,31 @@ describe('CameraDetector', () => {
     await user.click(screen.getByRole('button', { name: 'Add point' }));
     await user.click(screen.getByRole('button', { name: 'Add sound' }));
 
-    expect(screen.getByText('point2')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /point2.*Settings/ })).toBeInTheDocument();
     expect(get(cameraDetector).functions[0].name).toBe('sound1');
     expect(screen.getByLabelText('Detection script')).toBeInTheDocument();
+  });
+
+  it('opens point settings as an accordion for added points', async () => {
+    const user = userEvent.setup();
+
+    render(CameraDetector);
+    await user.click(screen.getByRole('button', { name: 'Add point' }));
+
+    expect(screen.getByLabelText('point2 X value')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /point1.*Settings/ }));
+
+    expect(screen.getByLabelText('point1 X value')).toBeInTheDocument();
+    expect(screen.queryByLabelText('point2 X value')).not.toBeInTheDocument();
+  });
+
+  it('renders the default point1 activation script and dev guide', () => {
+    render(CameraDetector);
+
+    expect(screen.getByLabelText('Detection script')).toHaveValue(
+      'ONACTION point1 | point1 IS TRUE ? FUNCTION sound1 : FUNCTION null'
+    );
+    expect(screen.getByRole('heading', { name: 'Coding dev guide' })).toBeInTheDocument();
   });
 });

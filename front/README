@@ -42,7 +42,8 @@ npm run lint --workspace front
 7. The Train button stores the current point's average RGB value and converted Lab value as that point's reference.
 8. Sensitivity maps from exact match at `1` to the calibrated weighted Lab max distance at `1000`.
 9. Point overlays turn green when the current average color is within Lab range.
-10. Sound functions can be added as `sound1`, `sound2`, and so on, then selected as direct on/off actions or called from the script window.
+10. The detector starts with `sound1` and a default script that plays `sound1` when `point1` turns on.
+11. More sound functions can be added as `sound2`, `sound3`, and so on, then selected as direct on/off actions or called from the script window.
 
 Camera script lines use this form:
 

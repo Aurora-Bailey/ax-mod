@@ -21,8 +21,12 @@
   let videoElement: HTMLVideoElement;
   let localError = '';
   let attachedStream: MediaStream | null = null;
+  let openPointId = 'point1';
 
   $: attachVisibleStream($cameraDetector.stream);
+  $: if (!$cameraDetector.points.some((point) => point.id === openPointId)) {
+    openPointId = $cameraDetector.points[0]?.id ?? '';
+  }
 
   onMount(() => {
     attachVisibleStream($cameraDetector.stream);
@@ -69,6 +73,15 @@
     value: string
   ): void {
     cameraDetector.setPointAction(pointId, action, value || null);
+  }
+
+  function handleAddPoint(): void {
+    openPointId = nextPointId();
+    cameraDetector.addPoint();
+  }
+
+  function togglePoint(pointId: string): void {
+    openPointId = openPointId === pointId ? '' : pointId;
   }
 
   function attachVisibleStream(stream: MediaStream | null): void {
@@ -124,6 +137,19 @@
     }
 
     return point.isMatch ? 'On' : 'Off';
+  }
+
+  function nextPointId(): string {
+    const nextNumber =
+      Math.max(
+        0,
+        ...$cameraDetector.points
+          .map((point) => point.name.match(/^point(\d+)$/)?.[1])
+          .filter((value): value is string => value !== undefined)
+          .map(Number)
+      ) + 1;
+
+    return `point${nextNumber}`;
   }
 </script>
 
@@ -223,23 +249,40 @@
     <section class="detection-section" aria-labelledby="detection-points-title">
       <div class="section-header">
         <h2 id="detection-points-title">Detection points</h2>
-        <button type="button" class="compact-button" onclick={() => cameraDetector.addPoint()}>
+        <button type="button" class="compact-button" onclick={handleAddPoint}>
           Add point
         </button>
       </div>
 
       <div class="point-list">
-        {#each $cameraDetector.points as point, index (point.id)}
-          <details class="point-panel" open={index === 0}>
-            <summary>
+        {#each $cameraDetector.points as point (point.id)}
+          <section class="point-panel" aria-labelledby={`${point.id}-header`}>
+            <button
+              type="button"
+              class="accordion-trigger"
+              aria-expanded={openPointId === point.id}
+              aria-controls={`${point.id}-settings`}
+              onclick={() => togglePoint(point.id)}
+            >
               <span class="point-title">{point.name}</span>
               <span class:match-text={point.isMatch} class="point-state">{pointStateText(point)}</span>
               <span class="point-meta">
                 {point.distance === null ? 'Not trained' : `Lab ${point.distance.toFixed(2)}`}
               </span>
-            </summary>
+              <span class="accordion-action" id={`${point.id}-header`}>
+                Settings
+                <svg
+                  class:open={openPointId === point.id}
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </span>
+            </button>
 
-            <div class="point-settings">
+            {#if openPointId === point.id}
+            <div class="point-settings" id={`${point.id}-settings`}>
               <label class="checkbox-row">
                 <input
                   type="checkbox"
@@ -360,7 +403,8 @@
                 </button>
               </div>
             </div>
-          </details>
+            {/if}
+          </section>
         {/each}
       </div>
     </section>
@@ -406,6 +450,37 @@
           {/each}
         </ul>
       {/if}
+    </section>
+
+    <section class="dev-guide-section" aria-labelledby="dev-guide-title">
+      <div class="section-header">
+        <h2 id="dev-guide-title">Coding dev guide</h2>
+      </div>
+
+      <div class="guide-grid">
+        <div>
+          <h3>Points</h3>
+          <p>
+            Detection points are named <code>point1</code>, <code>point2</code>, and so on. Each
+            point owns its own square, sensitivity, trained Lab reference, and on/off transition.
+          </p>
+        </div>
+        <div>
+          <h3>Functions</h3>
+          <p>
+            Sound functions are named <code>sound1</code>, <code>sound2</code>, and so on.
+            <code>FUNCTION null</code> is a no-op branch for script logic.
+          </p>
+        </div>
+        <div>
+          <h3>Script</h3>
+          <pre>ONACTION point1 | point1 IS TRUE ? FUNCTION sound1 : FUNCTION null</pre>
+          <p>
+            Conditions support <code>IS TRUE</code>, <code>IS FALSE</code>, <code>AND</code>, and
+            <code>OR</code>. Rules run only when the named <code>ONACTION</code> point changes.
+          </p>
+        </div>
+      </div>
     </section>
   </section>
 </section>
@@ -622,7 +697,8 @@
 
   .detection-section,
   .function-section,
-  .script-section {
+  .script-section,
+  .dev-guide-section {
     display: grid;
     gap: 14px;
     padding: 18px;
@@ -651,13 +727,23 @@
     background: rgba(255, 255, 255, 0.78);
   }
 
-  summary {
+  .accordion-trigger {
+    width: 100%;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
     gap: 12px;
     align-items: center;
+    min-height: 0;
     padding: 14px;
+    border: 0;
+    background: transparent;
+    color: #1f2933;
     cursor: pointer;
+    text-align: left;
+  }
+
+  .accordion-trigger:hover:not(:disabled) {
+    background: rgba(31, 111, 80, 0.08);
   }
 
   .point-title,
@@ -668,6 +754,29 @@
   .point-meta {
     color: #5d6670;
     font-weight: 750;
+  }
+
+  .accordion-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #1f6f50;
+    font-weight: 850;
+  }
+
+  .accordion-action svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 140ms ease;
+  }
+
+  .accordion-action svg.open {
+    transform: rotate(180deg);
   }
 
   .point-settings {
@@ -791,12 +900,50 @@
     font-weight: 750;
   }
 
+  .guide-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .guide-grid h3 {
+    margin: 0 0 8px;
+    font-size: 0.95rem;
+  }
+
+  .guide-grid p {
+    margin: 0;
+    color: #40505f;
+    line-height: 1.5;
+  }
+
+  code,
+  pre {
+    border-radius: 6px;
+    background: rgba(31, 41, 51, 0.08);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  }
+
+  code {
+    padding: 1px 4px;
+  }
+
+  pre {
+    margin: 0 0 8px;
+    overflow-x: auto;
+    padding: 10px;
+    color: #1f2933;
+    font-size: 0.85rem;
+    line-height: 1.45;
+  }
+
   @media (max-width: 760px) {
     .camera-toolbar,
     .status-row,
     .square-grid,
     .action-grid,
-    summary,
+    .accordion-trigger,
+    .guide-grid,
     .range-pair {
       grid-template-columns: 1fr;
     }

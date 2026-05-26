@@ -81,6 +81,8 @@ const DEFAULT_SQUARE: DetectionSquare = {
   width: 50,
   height: 50
 };
+const DEFAULT_FUNCTIONS: DetectionFunction[] = [{ id: 'sound1', name: 'sound1', type: 'sound' }];
+const DEFAULT_SCRIPT = 'ONACTION point1 | point1 IS TRUE ? FUNCTION sound1 : FUNCTION null';
 
 const DEFAULT_STATE: CameraDetectorState = {
   devices: [],
@@ -91,8 +93,8 @@ const DEFAULT_STATE: CameraDetectorState = {
   videoWidth: 640,
   videoHeight: 480,
   points: [createDefaultPoint(1)],
-  functions: [],
-  script: '',
+  functions: DEFAULT_FUNCTIONS,
+  script: DEFAULT_SCRIPT,
   scriptErrors: [],
   fps: 0,
   hydrated: false
@@ -359,7 +361,7 @@ function readPersistedState(): PersistedDetectorState {
   const fallback: PersistedDetectorState = {
     selectedDeviceId: DEFAULT_STATE.selectedDeviceId,
     points: DEFAULT_STATE.points.map(toPersistedPoint),
-    functions: DEFAULT_STATE.functions,
+    functions: DEFAULT_FUNCTIONS,
     script: DEFAULT_STATE.script
   };
 
@@ -383,13 +385,23 @@ function readPersistedState(): PersistedDetectorState {
       selectedDeviceId: typeof parsed.selectedDeviceId === 'string' ? parsed.selectedDeviceId : '',
       points: points.length > 0 ? points : fallback.points,
       functions: Array.isArray(parsed.functions)
-        ? parsed.functions.filter(isDetectionFunction)
+        ? mergeDefaultFunctions(parsed.functions.filter(isDetectionFunction))
         : fallback.functions,
-      script: typeof parsed.script === 'string' ? parsed.script : fallback.script
+      script: typeof parsed.script === 'string' && parsed.script.trim() ? parsed.script : fallback.script
     };
   } catch {
     return fallback;
   }
+}
+
+function mergeDefaultFunctions(functions: DetectionFunction[]): DetectionFunction[] {
+  const byId = new Map(DEFAULT_FUNCTIONS.map((item) => [item.id, item]));
+
+  for (const item of functions) {
+    byId.set(item.id, item);
+  }
+
+  return Array.from(byId.values());
 }
 
 function persistState(state: CameraDetectorState): void {

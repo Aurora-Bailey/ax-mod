@@ -46,6 +46,14 @@ describe('camera detector store', () => {
     });
   });
 
+  it('starts with sound1 and a point1 activation script', () => {
+    expect(get(cameraDetector).functions).toEqual([{ id: 'sound1', name: 'sound1', type: 'sound' }]);
+    expect(get(cameraDetector).script).toBe(
+      'ONACTION point1 | point1 IS TRUE ? FUNCTION sound1 : FUNCTION null'
+    );
+    expect(get(cameraDetector).scriptErrors).toEqual([]);
+  });
+
   it('adds auto-named detection points', () => {
     cameraDetector.addPoint();
     cameraDetector.addPoint();
@@ -106,12 +114,12 @@ describe('camera detector store', () => {
 
     expect(get(cameraDetector).functions).toEqual([
       { id: 'sound1', name: 'sound1', type: 'sound' },
-      { id: 'sound2', name: 'sound2', type: 'sound' }
+      { id: 'sound2', name: 'sound2', type: 'sound' },
+      { id: 'sound3', name: 'sound3', type: 'sound' }
     ]);
   });
 
   it('validates scripts against current points and functions', () => {
-    cameraDetector.addFunction();
     cameraDetector.setScript('ONACTION point1 | point1 IS TRUE ? FUNCTION sound1 : FUNCTION null');
 
     expect(get(cameraDetector).scriptErrors).toEqual([]);
@@ -121,6 +129,37 @@ describe('camera detector store', () => {
     expect(get(cameraDetector).scriptErrors).toEqual([
       'Line 1: unknown trigger point "point2".'
     ]);
+  });
+
+  it('hydrates empty function and script storage into the default script setup', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        selectedDeviceId: '',
+        points: [
+          {
+            id: 'point1',
+            name: 'point1',
+            enabled: true,
+            square: { x: 20, y: 20, width: 50, height: 50 },
+            sensitivity: 100,
+            referenceRgb: null,
+            referenceLab: null,
+            onActionFunctionId: null,
+            offActionFunctionId: null
+          }
+        ],
+        functions: [],
+        script: ''
+      })
+    );
+
+    cameraDetector.hydrate();
+
+    expect(get(cameraDetector).functions).toEqual([{ id: 'sound1', name: 'sound1', type: 'sound' }]);
+    expect(get(cameraDetector).script).toBe(
+      'ONACTION point1 | point1 IS TRUE ? FUNCTION sound1 : FUNCTION null'
+    );
   });
 
   it('does not train without a current RGB value', () => {
