@@ -51,9 +51,18 @@ describe('camera detection math', () => {
     ).toBe(Math.sqrt((20 * LAB_LIGHTNESS_WEIGHT) ** 2 + 3 ** 2 + 4 ** 2));
   });
 
-  it('maps sensitivity from exact match to the theoretical maximum Lab distance', () => {
+  it('maps sensitivity from exact match to the calibrated maximum Lab distance', () => {
     expect(sensitivityToThreshold(1)).toBe(0);
     expect(sensitivityToThreshold(1000)).toBe(MAX_LAB_DISTANCE);
+  });
+
+  it('calibrates the maximum Lab distance to the in-app RGB conversion range', () => {
+    const green = rgbToLab({ r: 0, g: 255, b: 0 });
+    const blue = rgbToLab({ r: 0, g: 0, b: 255 });
+
+    expect(labDistance(green, blue)).toBeCloseTo(MAX_LAB_DISTANCE, 5);
+    expect(isLabMatch(green, blue, 999)).toBe(false);
+    expect(isLabMatch(green, blue, 1000)).toBe(true);
   });
 
   it('matches only exact colors at minimum sensitivity and every color at maximum sensitivity', () => {

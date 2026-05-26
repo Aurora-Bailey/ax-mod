@@ -26,8 +26,9 @@ export type ImageDataLike = {
 export const MIN_SENSITIVITY = 1;
 export const MAX_SENSITIVITY = 1000;
 export const LAB_LIGHTNESS_WEIGHT = 0.5;
-export const MAX_LAB_DISTANCE = Math.sqrt(
-  (100 * LAB_LIGHTNESS_WEIGHT) ** 2 + 255 ** 2 + 255 ** 2
+export const MAX_LAB_DISTANCE = labDistance(
+  rgbToLab({ r: 0, g: 255, b: 0 }),
+  rgbToLab({ r: 0, g: 0, b: 255 })
 );
 
 export function clampSensitivity(value: number): number {

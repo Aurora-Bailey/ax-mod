@@ -1,5 +1,6 @@
 import { browser } from '$app/environment';
 import { writable } from 'svelte/store';
+import { parseDetectionScript } from './detection-script';
 import {
   clampSensitivity,
   clampSquare,
@@ -16,14 +17,16 @@ export type CameraDevice = {
   label: string;
 };
 
-export type CameraDetectorState = {
-  devices: CameraDevice[];
-  selectedDeviceId: string;
-  stream: MediaStream | null;
-  cameraActive: boolean;
-  cameraError: string;
-  videoWidth: number;
-  videoHeight: number;
+export type DetectionFunction = {
+  id: string;
+  name: string;
+  type: 'sound';
+};
+
+export type DetectionPoint = {
+  id: string;
+  name: string;
+  enabled: boolean;
   square: DetectionSquare;
   sensitivity: number;
   referenceRgb: Rgb | null;
@@ -32,15 +35,43 @@ export type CameraDetectorState = {
   currentLab: Lab | null;
   distance: number | null;
   isMatch: boolean;
+  onActionFunctionId: string | null;
+  offActionFunctionId: string | null;
+};
+
+export type CameraDetectorState = {
+  devices: CameraDevice[];
+  selectedDeviceId: string;
+  stream: MediaStream | null;
+  cameraActive: boolean;
+  cameraError: string;
+  videoWidth: number;
+  videoHeight: number;
+  points: DetectionPoint[];
+  functions: DetectionFunction[];
+  script: string;
+  scriptErrors: string[];
+  fps: number;
   hydrated: boolean;
 };
 
 type PersistedDetectorState = {
   selectedDeviceId: string;
+  points: PersistedDetectionPoint[];
+  functions: DetectionFunction[];
+  script: string;
+};
+
+type PersistedDetectionPoint = {
+  id: string;
+  name: string;
+  enabled: boolean;
   square: DetectionSquare;
   sensitivity: number;
   referenceRgb: Rgb | null;
   referenceLab: Lab | null;
+  onActionFunctionId: string | null;
+  offActionFunctionId: string | null;
 };
 
 const STORAGE_KEY = 'ax-mod.camera-detector.v1';
@@ -59,14 +90,11 @@ const DEFAULT_STATE: CameraDetectorState = {
   cameraError: '',
   videoWidth: 640,
   videoHeight: 480,
-  square: DEFAULT_SQUARE,
-  sensitivity: 100,
-  referenceRgb: null,
-  referenceLab: null,
-  currentRgb: null,
-  currentLab: null,
-  distance: null,
-  isMatch: false,
+  points: [createDefaultPoint(1)],
+  functions: [],
+  script: '',
+  scriptErrors: [],
+  fps: 0,
   hydrated: false
 };
 
@@ -105,8 +133,15 @@ function createCameraDetectorStore() {
         const next = withDetection({
           ...state,
           ...persisted,
-          square: clampSquare(persisted.square, state.videoWidth, state.videoHeight),
-          sensitivity: clampSensitivity(persisted.sensitivity),
+          points: persisted.points.map((point) => ({
+            ...point,
+            square: clampSquare(point.square, state.videoWidth, state.videoHeight),
+            sensitivity: clampSensitivity(point.sensitivity),
+            currentRgb: null,
+            currentLab: null,
+            distance: null,
+            isMatch: false
+          })),
           hydrated: true
         });
 
@@ -127,8 +162,10 @@ function createCameraDetectorStore() {
           stream,
           cameraActive: stream !== null,
           cameraError: stream ? '' : state.cameraError,
-          currentRgb: stream ? state.currentRgb : null,
-          currentLab: stream ? state.currentLab : null
+          fps: stream ? state.fps : 0,
+          points: stream
+            ? state.points
+            : state.points.map((point) => ({ ...point, currentRgb: null, currentLab: null }))
         }),
         false
       );
@@ -141,8 +178,10 @@ function createCameraDetectorStore() {
           cameraError,
           cameraActive: deactivate ? false : state.cameraActive,
           stream: deactivate ? null : state.stream,
-          currentRgb: deactivate ? null : state.currentRgb,
-          currentLab: deactivate ? null : state.currentLab
+          fps: deactivate ? 0 : state.fps,
+          points: deactivate
+            ? state.points.map((point) => ({ ...point, currentRgb: null, currentLab: null }))
+            : state.points
         }),
         false
       );
@@ -153,50 +192,124 @@ function createCameraDetectorStore() {
           ...state,
           videoWidth: Math.max(1, Math.round(videoWidth)),
           videoHeight: Math.max(1, Math.round(videoHeight)),
-          square: clampSquare(state.square, videoWidth, videoHeight)
+          points: state.points.map((point) => ({
+            ...point,
+            square: clampSquare(point.square, videoWidth, videoHeight)
+          }))
         }),
         false
       );
     },
-    updateSquare(partial: Partial<DetectionSquare>): void {
+    setFps(fps: number): void {
+      updateAndPersist((state) => ({ ...state, fps: Math.max(0, Math.round(fps)) }), false);
+    },
+    addPoint(): void {
+      updateAndPersist((state) => {
+        const point = createDefaultPoint(nextNumberedName(state.points.map((item) => item.name), 'point'));
+
+        return {
+          ...state,
+          points: [
+            ...state.points,
+            {
+              ...point,
+              square: clampSquare(point.square, state.videoWidth, state.videoHeight)
+            }
+          ]
+        };
+      });
+    },
+    setPointEnabled(pointId: string, enabled: boolean): void {
+      updatePoint(pointId, (point) => ({ ...point, enabled }));
+    },
+    updatePointSquare(pointId: string, partial: Partial<DetectionSquare>): void {
       updateAndPersist((state) => ({
         ...state,
-        square: clampSquare({ ...state.square, ...partial }, state.videoWidth, state.videoHeight)
+        points: state.points.map((point) =>
+          point.id === pointId
+            ? {
+                ...point,
+                square: clampSquare(
+                  { ...point.square, ...partial },
+                  state.videoWidth,
+                  state.videoHeight
+                )
+              }
+            : point
+        )
       }));
     },
-    setSensitivity(sensitivity: number): void {
-      updateAndPersist((state) => ({ ...state, sensitivity: clampSensitivity(sensitivity) }));
+    setPointSensitivity(pointId: string, sensitivity: number): void {
+      updatePoint(pointId, (point) => ({ ...point, sensitivity: clampSensitivity(sensitivity) }));
     },
-    setCurrentRgb(currentRgb: Rgb | null): void {
+    setPointAction(
+      pointId: string,
+      action: 'onActionFunctionId' | 'offActionFunctionId',
+      functionId: string | null
+    ): void {
+      updatePoint(pointId, (point) => ({ ...point, [action]: functionId }));
+    },
+    setPointCurrentRgbs(samples: Record<string, Rgb | null>): void {
       updateAndPersist(
         (state) => ({
           ...state,
-          currentRgb,
-          currentLab: currentRgb ? rgbToLab(currentRgb) : null
+          points: state.points.map((point) => {
+            if (!(point.id in samples)) {
+              return point;
+            }
+
+            const currentRgb = samples[point.id] ?? null;
+            return {
+              ...point,
+              currentRgb,
+              currentLab: currentRgb ? rgbToLab(currentRgb) : null
+            };
+          })
         }),
         false
       );
     },
-    trainFromCurrent(): boolean {
+    trainPointFromCurrent(pointId: string): boolean {
       let trained = false;
 
-      updateAndPersist((state) => {
-        if (!state.currentRgb) {
-          return state;
-        }
+      updateAndPersist((state) => ({
+        ...state,
+        points: state.points.map((point) => {
+          if (point.id !== pointId || !point.currentRgb) {
+            return point;
+          }
 
-        trained = true;
-        return {
-          ...state,
-          referenceRgb: state.currentRgb,
-          referenceLab: state.currentLab ?? rgbToLab(state.currentRgb)
-        };
-      });
+          trained = true;
+          return {
+            ...point,
+            referenceRgb: point.currentRgb,
+            referenceLab: point.currentLab ?? rgbToLab(point.currentRgb)
+          };
+        })
+      }));
 
       return trained;
     },
-    resetReference(): void {
-      updateAndPersist((state) => ({ ...state, referenceRgb: null, referenceLab: null }));
+    resetPointReference(pointId: string): void {
+      updatePoint(pointId, (point) => ({ ...point, referenceRgb: null, referenceLab: null }));
+    },
+    addFunction(): void {
+      updateAndPersist((state) => {
+        const nextNumber = nextNumberedName(state.functions.map((item) => item.name), 'sound');
+        const nextFunction: DetectionFunction = {
+          id: `sound${nextNumber}`,
+          name: `sound${nextNumber}`,
+          type: 'sound'
+        };
+
+        return {
+          ...state,
+          functions: [...state.functions, nextFunction]
+        };
+      });
+    },
+    setScript(script: string): void {
+      updateAndPersist((state) => ({ ...state, script }));
     },
     resetForTests(): void {
       getStorage()?.removeItem(STORAGE_KEY);
@@ -204,31 +317,50 @@ function createCameraDetectorStore() {
       set(DEFAULT_STATE);
     }
   };
+
+  function updatePoint(pointId: string, updater: (point: DetectionPoint) => DetectionPoint): void {
+    updateAndPersist((state) => ({
+      ...state,
+      points: state.points.map((point) => (point.id === pointId ? updater(point) : point))
+    }));
+  }
 }
 
 export const cameraDetector = createCameraDetectorStore();
 
 function withDetection(state: CameraDetectorState): CameraDetectorState {
-  const currentLab = state.currentLab ?? (state.currentRgb ? rgbToLab(state.currentRgb) : null);
-  const referenceLab = state.referenceLab ?? (state.referenceRgb ? rgbToLab(state.referenceRgb) : null);
-  const distance = currentLab && referenceLab ? labDistance(currentLab, referenceLab) : null;
+  const points = state.points.map((point) => {
+    const currentLab = point.currentLab ?? (point.currentRgb ? rgbToLab(point.currentRgb) : null);
+    const referenceLab = point.referenceLab ?? (point.referenceRgb ? rgbToLab(point.referenceRgb) : null);
+    const distance = currentLab && referenceLab ? labDistance(currentLab, referenceLab) : null;
+
+    return {
+      ...point,
+      currentLab,
+      referenceLab,
+      distance,
+      isMatch: point.enabled && isLabMatch(currentLab, referenceLab, point.sensitivity)
+    };
+  });
+  const scriptErrors = parseDetectionScript(
+    state.script,
+    points.map((point) => point.name),
+    state.functions.map((item) => item.name)
+  ).errors;
 
   return {
     ...state,
-    currentLab,
-    referenceLab,
-    distance,
-    isMatch: isLabMatch(currentLab, referenceLab, state.sensitivity)
+    points,
+    scriptErrors
   };
 }
 
 function readPersistedState(): PersistedDetectorState {
   const fallback: PersistedDetectorState = {
     selectedDeviceId: DEFAULT_STATE.selectedDeviceId,
-    square: DEFAULT_STATE.square,
-    sensitivity: DEFAULT_STATE.sensitivity,
-    referenceRgb: DEFAULT_STATE.referenceRgb,
-    referenceLab: DEFAULT_STATE.referenceLab
+    points: DEFAULT_STATE.points.map(toPersistedPoint),
+    functions: DEFAULT_STATE.functions,
+    script: DEFAULT_STATE.script
   };
 
   if (!browser) {
@@ -241,19 +373,19 @@ function readPersistedState(): PersistedDetectorState {
       return fallback;
     }
 
-    const parsed = JSON.parse(raw) as Partial<PersistedDetectorState>;
-    const referenceRgb = isRgb(parsed.referenceRgb) ? parsed.referenceRgb : null;
+    const parsed = JSON.parse(raw) as Partial<PersistedDetectorState> &
+      Partial<LegacyPersistedDetectorState>;
+    const points = Array.isArray(parsed.points)
+      ? parsed.points.map(readPersistedPoint).filter((point): point is PersistedDetectionPoint => point !== null)
+      : [migrateLegacyPoint(parsed)];
 
     return {
       selectedDeviceId: typeof parsed.selectedDeviceId === 'string' ? parsed.selectedDeviceId : '',
-      square: isSquare(parsed.square) ? parsed.square : DEFAULT_SQUARE,
-      sensitivity: clampSensitivity(Number(parsed.sensitivity)),
-      referenceRgb,
-      referenceLab: referenceRgb
-        ? isLab(parsed.referenceLab)
-          ? parsed.referenceLab
-          : rgbToLab(referenceRgb)
-        : null
+      points: points.length > 0 ? points : fallback.points,
+      functions: Array.isArray(parsed.functions)
+        ? parsed.functions.filter(isDetectionFunction)
+        : fallback.functions,
+      script: typeof parsed.script === 'string' ? parsed.script : fallback.script
     };
   } catch {
     return fallback;
@@ -269,13 +401,111 @@ function persistState(state: CameraDetectorState): void {
 
   const persisted: PersistedDetectorState = {
     selectedDeviceId: state.selectedDeviceId,
-    square: state.square,
-    sensitivity: state.sensitivity,
-    referenceRgb: state.referenceRgb,
-    referenceLab: state.referenceLab
+    points: state.points.map(toPersistedPoint),
+    functions: state.functions,
+    script: state.script
   };
 
   storage.setItem(STORAGE_KEY, JSON.stringify(persisted));
+}
+
+function createDefaultPoint(index: number): DetectionPoint {
+  return {
+    id: `point${index}`,
+    name: `point${index}`,
+    enabled: true,
+    square: DEFAULT_SQUARE,
+    sensitivity: 100,
+    referenceRgb: null,
+    referenceLab: null,
+    currentRgb: null,
+    currentLab: null,
+    distance: null,
+    isMatch: false,
+    onActionFunctionId: null,
+    offActionFunctionId: null
+  };
+}
+
+function toPersistedPoint(point: DetectionPoint): PersistedDetectionPoint {
+  return {
+    id: point.id,
+    name: point.name,
+    enabled: point.enabled,
+    square: point.square,
+    sensitivity: point.sensitivity,
+    referenceRgb: point.referenceRgb,
+    referenceLab: point.referenceLab,
+    onActionFunctionId: point.onActionFunctionId,
+    offActionFunctionId: point.offActionFunctionId
+  };
+}
+
+function readPersistedPoint(value: unknown): PersistedDetectionPoint | null {
+  if (typeof value !== 'object' || value === null) {
+    return null;
+  }
+
+  const point = value as Partial<PersistedDetectionPoint>;
+  const referenceRgb = isRgb(point.referenceRgb) ? point.referenceRgb : null;
+
+  if (typeof point.id !== 'string' || typeof point.name !== 'string' || !isSquare(point.square)) {
+    return null;
+  }
+
+  return {
+    id: point.id,
+    name: point.name,
+    enabled: point.enabled !== false,
+    square: point.square,
+    sensitivity: clampSensitivity(Number(point.sensitivity)),
+    referenceRgb,
+    referenceLab: referenceRgb
+      ? isLab(point.referenceLab)
+        ? point.referenceLab
+        : rgbToLab(referenceRgb)
+      : null,
+    onActionFunctionId:
+      typeof point.onActionFunctionId === 'string' ? point.onActionFunctionId : null,
+    offActionFunctionId:
+      typeof point.offActionFunctionId === 'string' ? point.offActionFunctionId : null
+  };
+}
+
+type LegacyPersistedDetectorState = {
+  square: DetectionSquare;
+  sensitivity: number;
+  referenceRgb: Rgb | null;
+  referenceLab: Lab | null;
+};
+
+function migrateLegacyPoint(parsed: Partial<LegacyPersistedDetectorState>): PersistedDetectionPoint {
+  const referenceRgb = isRgb(parsed.referenceRgb) ? parsed.referenceRgb : null;
+
+  return {
+    id: 'point1',
+    name: 'point1',
+    enabled: true,
+    square: isSquare(parsed.square) ? parsed.square : DEFAULT_SQUARE,
+    sensitivity: clampSensitivity(Number(parsed.sensitivity)),
+    referenceRgb,
+    referenceLab: referenceRgb
+      ? isLab(parsed.referenceLab)
+        ? parsed.referenceLab
+        : rgbToLab(referenceRgb)
+      : null,
+    onActionFunctionId: null,
+    offActionFunctionId: null
+  };
+}
+
+function nextNumberedName(existingNames: string[], prefix: string): number {
+  const existingNumbers = existingNames
+    .map((name) => name.match(new RegExp(`^${prefix}(\\d+)$`))?.[1])
+    .filter((value): value is string => value !== undefined)
+    .map(Number);
+
+  return existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
 }
 
 function getStorage(): Storage | null {
@@ -290,6 +520,19 @@ function getStorage(): Storage | null {
   }
 
   return localStorage;
+}
+
+function isDetectionFunction(value: unknown): value is DetectionFunction {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'id' in value &&
+    'name' in value &&
+    'type' in value &&
+    typeof value.id === 'string' &&
+    typeof value.name === 'string' &&
+    value.type === 'sound'
+  );
 }
 
 function isSquare(value: unknown): value is DetectionSquare {

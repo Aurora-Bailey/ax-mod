@@ -6,7 +6,7 @@ This file is the first source of truth for Codex agents working in this reposito
 
 Build a small full-stack app with two frontend tools:
 
-- The camera detector samples a configurable square from a selected webcam, trains a Lab reference from the averaged RGB sample, and reports whether the current square color is close enough.
+- The camera detector samples configurable detection points from a selected webcam, trains Lab references from averaged RGB samples, and reports each point as on or off.
 - The Mongo word page asks the user for a word, sends it to the backend, stores it in local MongoDB, and displays saved words one at a time.
 
 Keep the app simple, tested, and easy to extend.
@@ -20,7 +20,7 @@ Keep the app simple, tested, and easy to extend.
 - Backend is the only layer that talks to MongoDB.
 - Frontend talks to backend over HTTP.
 - Camera detection is frontend-only and browser-local.
-- Persistent camera settings use browser localStorage.
+- Persistent camera settings, detection points, functions, and scripts use browser localStorage.
 
 ## Required Read Order
 

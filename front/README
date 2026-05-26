@@ -35,18 +35,30 @@ npm run lint --workspace front
 
 1. The root layout mounts a hidden detector runtime that persists across app pages.
 2. The camera page lists available webcams and starts the selected stream.
-3. The detector samples pixels inside the configured square on an animation loop.
-4. The default detection square is 50 by 50 pixels, and can still be resized in the controls.
-5. The Train button stores the current square's average RGB value and converted Lab value as the reference.
-6. Sensitivity maps from exact match at `1` to the theoretical weighted Lab max distance at `1000`.
-7. The square turns green when the current average color is within Lab range, and a generated beep plays on red-to-green transitions.
+3. Camera controls sit above the video with refresh, merged start/stop, and FPS readout.
+4. The detector samples pixels inside each enabled detection point on an animation loop.
+5. New points are auto-named `point1`, `point2`, and so on. Each point has its own square, sensitivity, trained reference, and on/off actions.
+6. The default point square is 50 by 50 pixels, and can be resized per point.
+7. The Train button stores the current point's average RGB value and converted Lab value as that point's reference.
+8. Sensitivity maps from exact match at `1` to the calibrated weighted Lab max distance at `1000`.
+9. Point overlays turn green when the current average color is within Lab range.
+10. Sound functions can be added as `sound1`, `sound2`, and so on, then selected as direct on/off actions or called from the script window.
+
+Camera script lines use this form:
+
+```txt
+ONACTION point1 | point1 IS TRUE ? FUNCTION sound1 : FUNCTION sound2
+ONACTION point2 | point1 IS FALSE AND point2 IS TRUE ? FUNCTION sound2 : FUNCTION null
+```
+
+Scripts are transition-driven by `ONACTION <point>`. Conditions support `<point> IS TRUE`, `<point> IS FALSE`, `AND`, and `OR`. `FUNCTION null` is a no-op branch.
 
 Detector settings are stored in browser localStorage:
 
 - Selected camera id
-- Square `x`, `y`, `width`, `height`
-- Sensitivity
-- Trained RGB and Lab reference
+- Detection points, including square `x`, `y`, `width`, `height`, sensitivity, references, and direct actions
+- Sound functions
+- Script text
 
 ## Mongo Word Flow
 
@@ -62,7 +74,7 @@ Detector settings are stored in browser localStorage:
 - `src/routes/+layout.svelte`: shared shell, navigation, and persistent detector runtime.
 - `src/routes/+page.svelte`: camera detector page.
 - `src/routes/mongoword/+page.svelte`: word app page.
-- `src/lib/camera/`: detector UI, runtime, state, RGB sampling, Lab color comparison, camera helpers, and sound.
+- `src/lib/camera/`: detector UI, runtime, state, RGB sampling, Lab color comparison, camera helpers, sound, and script evaluation.
 - `src/lib/WordApp.svelte`: main tested UI component.
 - `src/lib/api.ts`: backend HTTP client.
 

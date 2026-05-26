@@ -33,18 +33,35 @@ describe('camera detector store', () => {
     cameraDetector.resetForTests();
   });
 
-  it('uses a 50 by 50 square by default', () => {
-    expect(get(cameraDetector).square).toMatchObject({
-      width: 50,
-      height: 50
+  it('starts with point1 as a 50 by 50 square', () => {
+    const point = get(cameraDetector).points[0];
+
+    expect(point).toMatchObject({
+      id: 'point1',
+      name: 'point1',
+      square: {
+        width: 50,
+        height: 50
+      }
     });
   });
 
-  it('clamps square updates to the active video size', () => {
-    cameraDetector.setVideoSize(100, 80);
-    cameraDetector.updateSquare({ x: 500, y: -20, width: 0, height: 500 });
+  it('adds auto-named detection points', () => {
+    cameraDetector.addPoint();
+    cameraDetector.addPoint();
 
-    expect(get(cameraDetector).square).toEqual({
+    expect(get(cameraDetector).points.map((point) => point.name)).toEqual([
+      'point1',
+      'point2',
+      'point3'
+    ]);
+  });
+
+  it('clamps point square updates to the active video size', () => {
+    cameraDetector.setVideoSize(100, 80);
+    cameraDetector.updatePointSquare('point1', { x: 500, y: -20, width: 0, height: 500 });
+
+    expect(get(cameraDetector).points[0].square).toEqual({
       x: 99,
       y: 0,
       width: 1,
@@ -52,16 +69,16 @@ describe('camera detector store', () => {
     });
   });
 
-  it('trains the current Lab-backed color as the reference color', () => {
+  it('trains the current Lab-backed color as the point reference color', () => {
     const currentRgb = { r: 12, g: 34, b: 56 };
-    cameraDetector.setCurrentRgb(currentRgb);
+    cameraDetector.setPointCurrentRgbs({ point1: currentRgb });
 
-    expect(cameraDetector.trainFromCurrent()).toBe(true);
-    expect(get(cameraDetector).referenceRgb).toEqual(currentRgb);
-    expect(get(cameraDetector).referenceLab).toEqual(rgbToLab(currentRgb));
+    expect(cameraDetector.trainPointFromCurrent('point1')).toBe(true);
+    expect(get(cameraDetector).points[0].referenceRgb).toEqual(currentRgb);
+    expect(get(cameraDetector).points[0].referenceLab).toEqual(rgbToLab(currentRgb));
   });
 
-  it('hydrates older RGB-only references into Lab references', () => {
+  it('hydrates older single-point RGB references into point1 Lab references', () => {
     const referenceRgb = { r: 200, g: 80, b: 30 };
 
     localStorage.setItem(
@@ -76,13 +93,39 @@ describe('camera detector store', () => {
 
     cameraDetector.hydrate();
 
-    expect(get(cameraDetector).referenceRgb).toEqual(referenceRgb);
-    expect(get(cameraDetector).referenceLab).toEqual(rgbToLab(referenceRgb));
+    expect(get(cameraDetector).points[0]).toMatchObject({
+      id: 'point1',
+      referenceRgb,
+      referenceLab: rgbToLab(referenceRgb)
+    });
+  });
+
+  it('adds auto-named sound functions', () => {
+    cameraDetector.addFunction();
+    cameraDetector.addFunction();
+
+    expect(get(cameraDetector).functions).toEqual([
+      { id: 'sound1', name: 'sound1', type: 'sound' },
+      { id: 'sound2', name: 'sound2', type: 'sound' }
+    ]);
+  });
+
+  it('validates scripts against current points and functions', () => {
+    cameraDetector.addFunction();
+    cameraDetector.setScript('ONACTION point1 | point1 IS TRUE ? FUNCTION sound1 : FUNCTION null');
+
+    expect(get(cameraDetector).scriptErrors).toEqual([]);
+
+    cameraDetector.setScript('ONACTION point2 | point1 IS TRUE ? FUNCTION sound1 : FUNCTION null');
+
+    expect(get(cameraDetector).scriptErrors).toEqual([
+      'Line 1: unknown trigger point "point2".'
+    ]);
   });
 
   it('does not train without a current RGB value', () => {
-    expect(cameraDetector.trainFromCurrent()).toBe(false);
-    expect(get(cameraDetector).referenceRgb).toBeNull();
-    expect(get(cameraDetector).referenceLab).toBeNull();
+    expect(cameraDetector.trainPointFromCurrent('point1')).toBe(false);
+    expect(get(cameraDetector).points[0].referenceRgb).toBeNull();
+    expect(get(cameraDetector).points[0].referenceLab).toBeNull();
   });
 });
