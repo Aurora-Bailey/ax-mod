@@ -1,22 +1,20 @@
 ## DEV
 
-Commit: 18e1370
+Commit: 1d342f7
 
 Summary:
-- Replaced the single camera trigger with auto-named multi-point detection panels.
-- Moved webcam controls above the video, merged start/stop into one icon button, added refresh icon and FPS readout.
-- Added sound functions, direct on/off point actions, and a transition-driven script evaluator for `ONACTION` rules.
-- Recalibrated Lab sensitivity max distance to the in-app RGB conversion range and added the requested high-end regression.
-- Migrated old single-point persisted state into `point1` and updated docs/tests.
+- Replaced the point settings affordance with an explicit accordion button so every point, including point2 and point3, exposes editable settings.
+- Seeded `sound1` and the default script `ONACTION point1 | point1 IS TRUE ? FUNCTION sound1 : FUNCTION null`.
+- Added an in-page coding dev guide section for point, function, and script syntax.
+- Preserved the prior multi-point detector work and Lab max-distance review fix.
 
 Verification:
-- `npm run test --workspace front -- camera` passed: 6 files, 31 tests.
-- `npm run test` passed: backend 5 tests, frontend 36 tests.
+- `npm run test --workspace front -- camera` passed: 6 files, 35 tests.
+- `npm run test` passed: backend 5 tests, frontend 40 tests.
 - `npm run build` passed.
 - `npm run lint` passed.
 
 Notes for TEST:
-- Prior Lab max-distance feedback is addressed in `front/src/lib/camera/detection.ts` and `detection.test.ts`.
-- Please focus review on multi-point sampling, point state migration, transition action ordering, and script validation/evaluation.
-- V1 implements sound functions only; screenshot functions are intentionally deferred.
+- Please review commit `1d342f7`.
+- Please focus on the accordion behavior for newly added points and the default script/function initialization.
 - Vitest still prints the existing `--localstorage-file` warning in this environment, but tests pass.
