@@ -377,6 +377,9 @@ function readPersistedState(): PersistedDetectorState {
 
     const parsed = JSON.parse(raw) as Partial<PersistedDetectorState> &
       Partial<LegacyPersistedDetectorState>;
+    const persistedFunctions = Array.isArray(parsed.functions)
+      ? parsed.functions.filter(isDetectionFunction)
+      : null;
     const points = Array.isArray(parsed.points)
       ? parsed.points.map(readPersistedPoint).filter((point): point is PersistedDetectionPoint => point !== null)
       : [migrateLegacyPoint(parsed)];
@@ -384,14 +387,25 @@ function readPersistedState(): PersistedDetectorState {
     return {
       selectedDeviceId: typeof parsed.selectedDeviceId === 'string' ? parsed.selectedDeviceId : '',
       points: points.length > 0 ? points : fallback.points,
-      functions: Array.isArray(parsed.functions)
-        ? mergeDefaultFunctions(parsed.functions.filter(isDetectionFunction))
-        : fallback.functions,
-      script: typeof parsed.script === 'string' && parsed.script.trim() ? parsed.script : fallback.script
+      functions: persistedFunctions ? mergeDefaultFunctions(persistedFunctions) : fallback.functions,
+      script: readPersistedScript(parsed.script, persistedFunctions)
     };
   } catch {
     return fallback;
   }
+}
+
+function readPersistedScript(
+  value: unknown,
+  persistedFunctions: DetectionFunction[] | null
+): string {
+  if (typeof value !== 'string') {
+    return DEFAULT_SCRIPT;
+  }
+
+  const hasLegacyEmptyScript = value.trim() === '' && (persistedFunctions?.length ?? 0) === 0;
+
+  return hasLegacyEmptyScript ? DEFAULT_SCRIPT : value;
 }
 
 function mergeDefaultFunctions(functions: DetectionFunction[]): DetectionFunction[] {

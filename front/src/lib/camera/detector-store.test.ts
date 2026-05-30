@@ -131,7 +131,7 @@ describe('camera detector store', () => {
     ]);
   });
 
-  it('hydrates empty function and script storage into the default script setup', () => {
+  it('migrates legacy empty function and script storage into the default script setup', () => {
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
@@ -160,6 +160,24 @@ describe('camera detector store', () => {
     expect(get(cameraDetector).script).toBe(
       'ONACTION point1 | point1 IS TRUE ? FUNCTION sound1 : FUNCTION null'
     );
+  });
+
+  it('preserves a user-cleared persisted script after hydration', () => {
+    cameraDetector.setScript('');
+
+    const persisted = localStorage.getItem(STORAGE_KEY);
+    if (!persisted) {
+      throw new Error('Expected detector state to be persisted.');
+    }
+
+    cameraDetector.resetForTests();
+    localStorage.setItem(STORAGE_KEY, persisted);
+
+    cameraDetector.hydrate();
+
+    expect(get(cameraDetector).functions).toEqual([{ id: 'sound1', name: 'sound1', type: 'sound' }]);
+    expect(get(cameraDetector).script).toBe('');
+    expect(get(cameraDetector).scriptErrors).toEqual([]);
   });
 
   it('does not train without a current RGB value', () => {
