@@ -39,7 +39,8 @@ function parseFrontendPort(origin: string | undefined): number {
   }
 
   try {
-    const port = Number.parseInt(new URL(origin).port, 10);
+    const first = origin.split(',')[0].trim();
+    const port = Number.parseInt(new URL(first).port, 10);
     return Number.isInteger(port) && port > 0 ? port : DEFAULT_FRONTEND_PORT;
   } catch {
     return DEFAULT_FRONTEND_PORT;
