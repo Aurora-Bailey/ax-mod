@@ -7,17 +7,20 @@ const DEFAULT_FRONTEND_PORT = 5173;
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '..', '');
   const frontendPort = parseFrontendPort(env.FRONTEND_ORIGIN);
+  const allowedHost = process.env.PUBLIC_FRONTEND_HOST || env.PUBLIC_FRONTEND_HOST;
 
   return {
     envDir: '..',
     plugins: [sveltekit()],
     server: {
       port: frontendPort,
-      strictPort: true
+      strictPort: true,
+      ...(allowedHost ? { allowedHosts: [allowedHost] } : {})
     },
     preview: {
       port: frontendPort,
-      strictPort: true
+      strictPort: true,
+      ...(allowedHost ? { allowedHosts: [allowedHost] } : {})
     },
     resolve: {
       conditions: ['browser']
