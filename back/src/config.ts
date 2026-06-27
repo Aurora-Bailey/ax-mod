@@ -6,7 +6,7 @@ export type AppConfig = {
   port: number;
   mongodbUri: string;
   mongodbDb: string;
-  frontendOrigin: string;
+  frontendOrigin: string | string[];
 };
 
 const DEFAULT_PORT = 3001;
@@ -20,7 +20,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     port: parsePort(env.PORT),
     mongodbUri: env.MONGODB_URI ?? DEFAULT_MONGODB_URI,
     mongodbDb: env.MONGODB_DB ?? DEFAULT_MONGODB_DB,
-    frontendOrigin: env.FRONTEND_ORIGIN ?? DEFAULT_FRONTEND_ORIGIN
+    frontendOrigin: parseOrigins(env.FRONTEND_ORIGIN ?? DEFAULT_FRONTEND_ORIGIN)
   };
 }
 
@@ -37,6 +37,11 @@ export function loadEnvFiles(): void {
       loaded.add(path);
     }
   }
+}
+
+function parseOrigins(value: string): string | string[] {
+  const origins = value.split(',').map((s) => s.trim());
+  return origins.length === 1 ? origins[0] : origins;
 }
 
 function parsePort(value: string | undefined): number {

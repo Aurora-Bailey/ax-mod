@@ -4,7 +4,7 @@ import type { StoredWord, WordRepository } from './word-repository.js';
 
 type BuildAppOptions = {
   words: WordRepository;
-  corsOrigin?: string | boolean;
+  corsOrigin?: string | string[] | boolean;
   logger?: boolean;
 };
 
